@@ -1,0 +1,54 @@
+version: '3.8'
+services:
+  nginx:
+    build: ./requirements/nginx
+    ports:
+      - "433:433"
+    networks:
+      - backend
+    restart:
+      unless-stopped
+    depends_on:
+      - wordpress
+
+  mariadb:
+    build: ./requirements/mariadb
+    volumes:
+      -db_data:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      secrets:
+      - db_password
+      - db_root_password
+    networks:
+      - backend
+    restart:
+      unless-stopped
+  wordpress:
+    build: ./requirements/wordpress
+    depends_on:
+      - mariadb
+    networks:
+      - backend
+    restart:
+      unless-stopped
+    environment:
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD_FILE: /run/secrets/db_password
+      WORDPRESS_DB_HOST: mariadb:3306
+
+volumes:
+  db_data:
+
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+
+networks:
+  backend:
