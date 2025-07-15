@@ -55,4 +55,3 @@ chown -R wordpress:wordpress /var/www/html
 
 echo "🔥 Starting PHP-FPM..."
 exec php-fpm82 -F
-Actif 6 sur 12
