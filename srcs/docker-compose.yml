@@ -3,7 +3,7 @@ services:
   nginx:
     build: ./requirements/nginx
     ports:
-      - "433:433"
+      - "443:443"
     networks:
       - backend
     restart:
@@ -14,13 +14,13 @@ services:
   mariadb:
     build: ./requirements/mariadb
     volumes:
-      -db_data:/var/lib/mysql
+      - db_data:/var/lib/mysql
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD_FILE: /run/secrets/db_password
       MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
-      secrets:
+    secrets:
       - db_password
       - db_root_password
     networks:
