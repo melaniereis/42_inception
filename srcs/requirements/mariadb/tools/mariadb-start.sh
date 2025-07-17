@@ -1,44 +1,28 @@
-#!/bin/sh
+FROM alpine:3.21
 
-# MariaDB startup script for 42 Inception
+# Install MariaDB and openrc
+RUN apk add --no-cache \
+	mariadb mariadb-client mariadb-server-utils openrc
 
-echo "🔧 Initializing MariaDB..."
+# Create directories
+RUN mkdir -p /run/mysqld /var/lib/mysql /var/log/mysql
 
-# Initialize MariaDB if data directory is empty
-if [ ! -d "/var/lib/mysql/mysql" ]; then
-	echo "🚀 Setting up MariaDB for the first time..."
+# Set permissions
+RUN chown -R mysql:mysql /run/mysqld /var/lib/mysql /var/log/mysql \
+	&& chmod 777 /var/lib/mysql
 
-	# Initialize the database
-	mysql_install_db --user=mysql --datadir=/var/lib/mysql --rpm --skip-test-db
+# Copy configuration
+COPY conf/my.cnf /etc/my.cnf.d/mariadb-server.cnf
 
-	# Start MariaDB temporarily to setup users and database
-	mysqld_safe --datadir=/var/lib/mysql --user=mysql &
-	mysql_pid=$!
+# Copy initialization script
+COPY tools/init-db.sh /docker-entrypoint-initdb.d/init-db.sh
+RUN chmod +x /docker-entrypoint-initdb.d/init-db.sh
 
-	# Wait for MariaDB to start
-	while ! mysqladmin ping --silent; do
-		sleep 1
-	done
+# Copy startup script
+COPY tools/mariadb-start.sh /usr/local/bin/mariadb-start.sh
+RUN chmod +x /usr/local/bin/mariadb-start.sh
 
-	echo "⚙️ Configuring database and users..."
+EXPOSE 3306
 
-	# Setup database and users
-	mysql << EOF
-CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\`;
-CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$(cat /run/secrets/db_password)';
-GRANT ALL PRIVILEGES ON \`$MYSQL_DATABASE\`.* TO '$MYSQL_USER'@'%';
-ALTER USER 'root'@'localhost' IDENTIFIED BY '$(cat /run/secrets/db_root_password)';
-FLUSH PRIVILEGES;
-EOF
-
-	# Stop the temporary instance
-	mysqladmin -u root -p"$(cat /run/secrets/db_root_password)" shutdown
-	wait $mysql_pid
-
-	echo "✅ MariaDB initialization complete!"
-else
-	echo "ℹ️ MariaDB already initialized"
-fi
-
-echo "🔥 Starting MariaDB..."
-exec mysqld --user=mysql --console
+# Run as root to allow initialization
+CMD ["/usr/local/bin/mariadb-start.sh"]

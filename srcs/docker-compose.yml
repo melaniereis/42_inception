@@ -1,29 +1,30 @@
-# Docker Compose for 42 Inception Project
 version: '3.8'
 
 services:
   nginx:
-    build: ./requirements/nginx
-    container_name: nginx
-    ports:
-      - "443:443"
-    volumes:
-      - wp_data:/var/www/html
-    networks:
-      - inception_network
-    depends_on:
-      - wordpress
-    restart: unless-stopped
+      build: ./requirements/nginx
+      ports:
+        - "443:443"
+      volumes:
+        - wp_data:/var/www/html
+      networks:
+        - inception_network
+      depends_on:
+        wordpress:
+          condition: service_healthy
+      environment:
+        DOMAIN_NAME: ${DOMAIN_NAME}
+      restart: unless-stopped
 
   wordpress:
     build: ./requirements/wordpress
-    container_name: wordpress
     volumes:
       - wp_data:/var/www/html
     networks:
       - inception_network
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_started
     environment:
       DOMAIN_NAME: ${DOMAIN_NAME}
       WORDPRESS_DB_HOST: mariadb:3306
@@ -38,11 +39,15 @@ services:
       - db_password
       - wp_admin_password
       - wp_user_password
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
 
   mariadb:
     build: ./requirements/mariadb
-    container_name: mariadb
     volumes:
       - db_data:/var/lib/mysql
     networks:
@@ -50,6 +55,8 @@ services:
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
+      DB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      DB_PASSWORD_FILE: /run/secrets/db_password
     secrets:
       - db_password
       - db_root_password
@@ -58,17 +65,9 @@ services:
 volumes:
   wp_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/wp
 
   db_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /home/${USER}/data/db
 
 secrets:
   db_password:
@@ -83,3 +82,4 @@ secrets:
 networks:
   inception_network:
     driver: bridge
+    name: inception_net

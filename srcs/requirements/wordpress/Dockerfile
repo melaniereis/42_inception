@@ -1,4 +1,3 @@
-# 42 Inception - WordPress Dockerfile
 FROM alpine:3.21
 
 # Install PHP, PHP-FPM and required extensions
@@ -15,7 +14,6 @@ RUN apk add --no-cache \
 	php82-openssl \
 	php82-xml \
 	php82-zip \
-	php82-redis \
 	php82-gd \
 	php82-iconv \
 	php82-pdo \
@@ -27,7 +25,8 @@ RUN apk add --no-cache \
 	php82-xmlwriter \
 	php82-sodium \
 	curl \
-	wget
+	wget \
+	mariadb-client
 
 # Create symbolic links for PHP
 RUN ln -s /usr/bin/php82 /usr/bin/php
@@ -44,8 +43,12 @@ RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli
 	&& chmod +x wp-cli.phar \
 	&& mv wp-cli.phar /usr/local/bin/wp
 
+# Add healthcheck for PHP-FPM
+HEALTHCHECK --interval=10s --timeout=3s \
+	CMD curl -f http://localhost:9000 || exit 1
+
 # Create WordPress user
-RUN adduser -D -S -s /bin/sh wordpress
+RUN addgroup -S wordpress && adduser -D -S -G wordpress -s /bin/sh wordpress
 
 # Copy PHP-FPM configuration
 COPY conf/www.conf /etc/php82/php-fpm.d/www.conf

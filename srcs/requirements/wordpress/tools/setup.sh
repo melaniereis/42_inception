@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# WordPress setup script for 42 Inception
+set -x  # Enable debugging
 
 # Wait for MariaDB to be ready
 echo "⏳ Waiting for MariaDB to be ready..."
@@ -8,6 +8,18 @@ while ! mariadb -h"$WORDPRESS_DB_HOST" -u"$WORDPRESS_DB_USER" -p"$(cat $WORDPRES
 	sleep 2
 done
 echo "✅ MariaDB is ready!"
+
+# Validate domain format
+if [[ ! "$DOMAIN_NAME" =~ ^[a-z0-9]+\.42\.fr$ ]]; then
+	echo "❌ ERROR: Domain must be in format 'login.42.fr'" >&2
+	exit 1
+fi
+
+# Validate admin username
+if [[ "$WP_ADMIN_USER" =~ [Aa]dmin ]]; then
+	echo "❌ ERROR: Admin username cannot contain 'admin'" >&2
+	exit 1
+fi
 
 # Check if WordPress is already configured
 if [ ! -f "/var/www/html/wp-config.php" ]; then

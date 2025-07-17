@@ -6,7 +6,7 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/07/15 17:02:51 by meferraz         ###   ########.fr        #
+#    Updated: 2025/07/17 17:17:26 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -50,7 +50,7 @@ DOCKER_YML  = $(SRC)/docker-compose.yml
 #------------------------------------------------------------------------------#
 
 DOCKER      = docker
-COMPOSE     = $(DOCKER) compose -f $(DOCKER_YML)
+COMPOSE     = $(DOCKER) compose -f $(DOCKER_YML) -p $(NAME)
 
 #------------------------------------------------------------------------------#
 #                              SERVICE NAMES                                   #
@@ -83,6 +83,7 @@ fclean: clean  ## 🧹 Remove containers, volumes, and images
 	@echo "$(BROOM) Full cleanup: removing images and volumes..."
 	@$(COMPOSE) down --volumes --remove-orphans || true
 	@$(DOCKER) system prune -f || true
+	@$(DOCKER) rm inception_db_data inception_wp_data || true
 	@$(DOCKER) volume prune -f || true
 	@echo "$(CHECKMARK) Full cleanup complete."
 
@@ -115,8 +116,10 @@ check_env:  ## 🔍 Check Docker environment prerequisites
 
 check_volumes:  ## 📁 Ensure host volume directories exist
 	@echo "$(TARGET) Checking host volumes..."
-	@mkdir -p /home/$(USER)/data/db /home/$(USER)/data/wp
-	@echo "$(GREEN)$(CHECKMARK) Volumes at /home/$(USER)/data/ are ready.$(RESET)"
+	@mkdir -p $(HOME)/data/db $(HOME)/data/wp
+	@chown -R $(shell id -u):$(shell id -g) $(HOME)/data
+	@chmod -R 775 $(HOME)/data
+	@echo "$(GREEN)$(CHECKMARK) Volumes at $(HOME)/data/ are ready.$(RESET)"
 
 # Build and deployment
 build:  ## 🔨 Build all Docker images
@@ -128,7 +131,7 @@ up:  ## 🚀 Start all services in detached mode
 	@echo "$(ROCKET) Starting services..."
 	@$(COMPOSE) up -d
 	@echo "$(GREEN)$(CHECKMARK) Services are up.$(RESET)"
-	@echo "$(INFO) Access your site at: https://$(USER).42.fr"
+	@echo "$(INFO) Access your site at: https://$(DOMAIN_NAME)"
 
 down:  ## 🛑 Stop all services
 	@echo "$(BUG) Stopping services..."

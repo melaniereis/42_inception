@@ -1,36 +1,28 @@
-# 42 Inception - MariaDB Dockerfile
 FROM alpine:3.21
 
-# Install MariaDB and related packages
+# Install MariaDB and openrc
 RUN apk add --no-cache \
-	mariadb \
-	mariadb-client \
-	mariadb-server-utils \
-	openrc \
-	&& mkdir -p /run/mysqld \
-	&& chown -R mysql:mysql /run/mysqld
+	mariadb mariadb-client mariadb-server-utils openrc
 
-# Copy MariaDB configuration
+# Create directories
+RUN mkdir -p /run/mysqld /var/lib/mysql /var/log/mysql
+
+# Set permissions
+RUN chown -R mysql:mysql /run/mysqld /var/lib/mysql /var/log/mysql \
+	&& chmod 777 /var/lib/mysql
+
+# Copy configuration
 COPY conf/my.cnf /etc/my.cnf.d/mariadb-server.cnf
+
+# Copy initialization script
 COPY tools/init-db.sh /docker-entrypoint-initdb.d/init-db.sh
-
-# Set proper permissions
 RUN chmod +x /docker-entrypoint-initdb.d/init-db.sh
-
-# Create directories and set permissions
-RUN mkdir -p /var/lib/mysql /run/mysqld \
-	&& chown -R mysql:mysql /var/lib/mysql /run/mysqld \
-	&& chmod 755 /var/lib/mysql /run/mysqld
 
 # Copy startup script
 COPY tools/mariadb-start.sh /usr/local/bin/mariadb-start.sh
 RUN chmod +x /usr/local/bin/mariadb-start.sh
 
-# Expose MariaDB port
 EXPOSE 3306
 
-# Switch to mysql user
-USER mysql
-
-# Start MariaDB
+# Run as root to allow initialization
 CMD ["/usr/local/bin/mariadb-start.sh"]
