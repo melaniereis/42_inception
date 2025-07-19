@@ -1,72 +1,34 @@
-FROM alpine:3.21
+FROM debian:bullseye
 
-# Install PHP, PHP-FPM and required extensions
-RUN apk add --no-cache \
-	php82 \
-	php82-fpm \
-	php82-mysqli \
-	php82-json \
-	php82-curl \
-	php82-dom \
-	php82-exif \
-	php82-fileinfo \
-	php82-mbstring \
-	php82-openssl \
-	php82-xml \
-	php82-zip \
-	php82-gd \
-	php82-iconv \
-	php82-pdo \
-	php82-pdo_mysql \
-	php82-session \
-	php82-simplexml \
-	php82-tokenizer \
-	php82-xmlreader \
-	php82-xmlwriter \
-	php82-sodium \
-	curl \
-	wget \
-	mariadb-client
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+	php php-fpm php-mysqli php-json php-curl php-mbstring php-xml \
+	php-gd curl wget mariadb-client && \
+	rm -rf /var/lib/apt/lists/*
 
-# Create symbolic links for PHP
-RUN ln -s /usr/bin/php82 /usr/bin/php
-
-# Download and install WordPress
+# Setup working directory
 WORKDIR /var/www/html
+
+# Download and extract WordPress
 RUN wget https://wordpress.org/latest.tar.gz \
 	&& tar -xzf latest.tar.gz \
 	&& mv wordpress/* . \
 	&& rm -rf wordpress latest.tar.gz
 
-# Download and install WP-CLI
-RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
-	&& chmod +x wp-cli.phar \
-	&& mv wp-cli.phar /usr/local/bin/wp
+# Install WP-CLI
+RUN wget https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -O /usr/local/bin/wp \
+	&& chmod +x /usr/local/bin/wp
 
-# Add healthcheck for PHP-FPM
-HEALTHCHECK --interval=10s --timeout=3s \
-	CMD curl -f http://localhost:9000 || exit 1
-
-# Create WordPress user
-RUN addgroup -S wordpress && adduser -D -S -G wordpress -s /bin/sh wordpress
-
-# Copy PHP-FPM configuration
-COPY conf/www.conf /etc/php82/php-fpm.d/www.conf
-COPY conf/php.ini /etc/php82/php.ini
-
-# Copy WordPress setup script
+# Copy configuration files
+COPY conf/php.ini /etc/php/7.4/fpm/php.ini
+COPY conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf
 COPY tools/setup.sh /usr/local/bin/setup.sh
 RUN chmod +x /usr/local/bin/setup.sh
 
-# Set proper permissions
-RUN chown -R wordpress:wordpress /var/www/html \
-	&& chmod -R 755 /var/www/html
+# Add user and group 'wordpress'
+RUN addgroup --system wordpress && \
+	adduser --system --ingroup wordpress --home /var/www/html wordpress
 
-# Create directory for PHP-FPM socket
-RUN mkdir -p /run/php
-
-# Expose port 9000 for PHP-FPM
 EXPOSE 9000
 
-# Start setup script
 CMD ["/usr/local/bin/setup.sh"]

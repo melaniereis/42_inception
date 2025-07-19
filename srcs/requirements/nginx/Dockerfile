@@ -1,29 +1,30 @@
-# srcs/requirements/nginx/Dockerfile
-FROM alpine:3.21
+FROM debian:bullseye
 
-# Install NGINX and OpenSSL for SSL certificates
-RUN apk add --no-cache \
+# Install dependencies
+RUN apt-get update && apt-get install -y \
 	nginx \
-	openssl
+	openssl && \
+	rm -rf /var/lib/apt/lists/*
 
-# Create directories for SSL certificates and nginx configuration
-RUN mkdir -p /etc/nginx/ssl \
-	&& mkdir -p /var/run/nginx \
-	&& mkdir -p /var/www/html
+# Create SSL directory and PID directory
+RUN mkdir -p /etc/nginx/ssl /var/run/nginx
 
-# Copy nginx configuration
+# Create sites directories and set up symlink
+RUN mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+
+# Copy main nginx configuration
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 
-# Set proper permissions
-RUN chown -R nginx:nginx /var/www/html \
-	&& chown -R nginx:nginx /var/run/nginx
+# Copy server block configuration
+COPY conf/default /etc/nginx/sites-available/default
 
-# Entrypoint to generate SSL certificate at runtime
-COPY tools/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Enable the site by creating symlink
+RUN ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
 
-# Expose port 443 for HTTPS
+# Copy entrypoint script
+COPY tools/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 443
 
-# Start nginx via entrypoint
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/entrypoint.sh"]

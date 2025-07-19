@@ -6,7 +6,7 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/07/17 17:17:26 by meferraz         ###   ########.fr        #
+#    Updated: 2025/07/17 21:24:14 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -131,7 +131,7 @@ up:  ## 🚀 Start all services in detached mode
 	@echo "$(ROCKET) Starting services..."
 	@$(COMPOSE) up -d
 	@echo "$(GREEN)$(CHECKMARK) Services are up.$(RESET)"
-	@echo "$(INFO) Access your site at: https://$(DOMAIN_NAME)"
+	@echo "$(INFO) Access your site at: https://$(USER).42.fr"
 
 down:  ## 🛑 Stop all services
 	@echo "$(BUG) Stopping services..."

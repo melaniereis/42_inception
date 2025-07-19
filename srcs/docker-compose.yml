@@ -1,73 +1,78 @@
 version: '3.8'
 
 services:
-  nginx:
-      build: ./requirements/nginx
-      ports:
-        - "443:443"
-      volumes:
-        - wp_data:/var/www/html
-      networks:
-        - inception_network
-      depends_on:
-        wordpress:
-          condition: service_healthy
-      environment:
-        DOMAIN_NAME: ${DOMAIN_NAME}
-      restart: unless-stopped
+  mariadb:
+    build: ./requirements/mariadb
+    volumes:
+      - db_data:/var/lib/mysql
+    secrets:
+      - db_password
+      - db_root_password
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: /run/secrets/db_password
+    networks:
+      - inception_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   wordpress:
     build: ./requirements/wordpress
     volumes:
       - wp_data:/var/www/html
-    networks:
-      - inception_network
-    depends_on:
-      mariadb:
-        condition: service_started
-    environment:
-      DOMAIN_NAME: ${DOMAIN_NAME}
-      WORDPRESS_DB_HOST: mariadb:3306
-      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
-      WORDPRESS_DB_USER: ${MYSQL_USER}
-      WORDPRESS_DB_PASSWORD_FILE: /run/secrets/db_password
-      WP_ADMIN_USER: ${WP_ADMIN_USER}
-      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL}
-      WP_USER: ${WP_USER}
-      WP_USER_EMAIL: ${WP_USER_EMAIL}
     secrets:
       - db_password
       - wp_admin_password
       - wp_user_password
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    restart: unless-stopped
-
-  mariadb:
-    build: ./requirements/mariadb
-    volumes:
-      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_HOST: mariadb
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: $run/secrets/db_password
+      DOMAIN_NAME: ${DOMAIN_NAME}
+      WP_ADMIN_USER: ${WP_ADMIN_USER}
+      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL}
+      WP_USER: ${WP_USER}
+      WP_USER_EMAIL: ${WP_USER_EMAIL}
+    depends_on:
+      mariadb:
+        condition: service_healthy
     networks:
       - inception_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep php-fpm7.4 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    build: ./requirements/nginx
+    volumes:
+      - wp_data:/var/www/html
+    ports:
+      - "443:443"
+    networks:
+      - inception_network
+    depends_on:
+      wordpress:
+        condition: service_healthy
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      DB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
-      DB_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
-      - db_root_password
+      DOMAIN_NAME: ${DOMAIN_NAME}
     restart: unless-stopped
 
-volumes:
-  wp_data:
-    driver: local
+networks:
+  inception_network:
+    driver: bridge
 
+volumes:
   db_data:
-    driver: local
+  wp_data:
 
 secrets:
   db_password:
@@ -78,8 +83,3 @@ secrets:
     file: ../secrets/wp_admin_password.txt
   wp_user_password:
     file: ../secrets/wp_user_password.txt
-
-networks:
-  inception_network:
-    driver: bridge
-    name: inception_net

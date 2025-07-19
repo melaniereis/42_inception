@@ -1,28 +1,51 @@
-FROM alpine:3.21
+#!/bin/sh
+set -e
 
-# Install MariaDB and openrc
-RUN apk add --no-cache \
-	mariadb mariadb-client mariadb-server-utils openrc
+# Paths to secrets
+ROOT_PW_FILE="/run/secrets/db_root_password"
+USER_PW_FILE="/run/secrets/db_password"
 
-# Create directories
-RUN mkdir -p /run/mysqld /var/lib/mysql /var/log/mysql
+# Environment variables with defaults
+DB_NAME="${MYSQL_DATABASE:-wordpress}"
+DB_USER="${MYSQL_USER:-wp_user}"
 
-# Set permissions
-RUN chown -R mysql:mysql /run/mysqld /var/lib/mysql /var/log/mysql \
-	&& chmod 777 /var/lib/mysql
+# Ensure data directory is initialized
+if [ ! -d "/var/lib/mysql/mysql" ]; then
+	echo "[MariaDB] Initializing database directory..."
+	mysql_install_db --user=mysql --datadir=/var/lib/mysql
+	chown -R mysql:mysql /var/lib/mysql
+fi
 
-# Copy configuration
-COPY conf/my.cnf /etc/my.cnf.d/mariadb-server.cnf
+echo "[MariaDB] Launching server in background..."
+mysqld --user=mysql --datadir=/var/lib/mysql --skip-networking &
+MARIADB_PID=$!
 
-# Copy initialization script
-COPY tools/init-db.sh /docker-entrypoint-initdb.d/init-db.sh
-RUN chmod +x /docker-entrypoint-initdb.d/init-db.sh
+# Wait for MariaDB to be ready
+for i in $(seq 1 30); do
+	if mysqladmin ping --silent; then
+		break
+	fi
+	sleep 1
+	if [ "$i" -eq 30 ]; then
+		echo "[MariaDB] Startup failed."
+		exit 1
+	fi
+done
 
-# Copy startup script
-COPY tools/mariadb-start.sh /usr/local/bin/mariadb-start.sh
-RUN chmod +x /usr/local/bin/mariadb-start.sh
+echo "[MariaDB] Setting up initial users and database..."
+mysql -uroot <<SQL
+ALTER USER 'root'@'localhost' IDENTIFIED BY '$(cat $ROOT_PW_FILE)';
+CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$(cat $USER_PW_FILE)';
+GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
+DELETE FROM mysql.user WHERE User='';
+DROP DATABASE IF EXISTS test;
+FLUSH PRIVILEGES;
+SQL
 
-EXPOSE 3306
+echo "[MariaDB] Shutting down background server..."
+mysqladmin shutdown -uroot -p"$(cat $ROOT_PW_FILE)" || true
+wait "$MARIADB_PID" || true
 
-# Run as root to allow initialization
-CMD ["/usr/local/bin/mariadb-start.sh"]
+echo "[MariaDB] Ready. Starting in foreground."
+exec mysqld --user=mysql --datadir=/var/lib/mysql

@@ -1,22 +1,17 @@
-FROM alpine:3.21
+FROM debian:bullseye
 
-# Install MariaDB and openrc
-RUN apk add --no-cache \
-	mariadb mariadb-client mariadb-server-utils openrc
+# Install MariaDB and dependencies
+RUN apt-get update && apt-get install -y \
+	mariadb-server mariadb-client && \
+	rm -rf /var/lib/apt/lists/*
 
-# Create directories
-RUN mkdir -p /run/mysqld /var/lib/mysql /var/log/mysql
+# Create necessary directories and set permissions
+RUN mkdir -p /run/mysqld /var/log/mysql /var/lib/mysql && \
+	chown -R mysql:mysql /run/mysqld /var/log/mysql /var/lib/mysql && \
+	chmod 750 /var/lib/mysql
 
-# Set permissions
-RUN chown -R mysql:mysql /run/mysqld /var/lib/mysql /var/log/mysql \
-	&& chmod 777 /var/lib/mysql
-
-# Copy configuration
-COPY conf/my.cnf /etc/my.cnf.d/mariadb-server.cnf
-
-# Copy initialization script
-COPY tools/init-db.sh /docker-entrypoint-initdb.d/init-db.sh
-RUN chmod +x /docker-entrypoint-initdb.d/init-db.sh
+# Copy custom MariaDB config
+COPY conf/my.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
 
 # Copy startup script
 COPY tools/mariadb-start.sh /usr/local/bin/mariadb-start.sh
@@ -24,5 +19,4 @@ RUN chmod +x /usr/local/bin/mariadb-start.sh
 
 EXPOSE 3306
 
-# Run as root to allow initialization
 CMD ["/usr/local/bin/mariadb-start.sh"]
