@@ -11,11 +11,10 @@ services:
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: /run/secrets/db_password
     networks:
       - inception_network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p$(cat /run/secrets/db_root_password)"]
       interval: 10s
       timeout: 5s
       retries: 5
