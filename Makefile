@@ -6,7 +6,7 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/07/17 21:24:14 by meferraz         ###   ########.fr        #
+#    Updated: 2025/07/25 21:36:57 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -64,18 +64,25 @@ MARIADB     = mariadb
 #                           42 SCHOOL MANDATORY RULES                         #
 #------------------------------------------------------------------------------#
 
-.PHONY: all clean fclean re help
+.PHONY: clean fclean re help check_env check_volumes
 
 # Default target (42 school requirement)
 all: $(NAME)  ## 🚀 Build and start all services (default target)
 
 # Main target - equivalent to $(NAME) rule (42 school requirement)
-$(NAME): check_env check_volumes build up  ## 🎯 Complete inception setup
+$(NAME): .inception_up  ## 🎯 Complete inception setup
+
+# Inception setup - checks environment, builds images, and starts services
+.inception_up: $(DOCKER_YML)
+	@$(MAKE) check_env check_volumes build up
+	@touch .inception_up
+	@echo "$(GREEN)$(CHECKMARK) Inception is ready.$(RESET)"
 
 # Clean rule - stop containers but keep images (42 school requirement)
 clean:  ## 🧹 Stop and remove containers
 	@echo "$(BROOM) Cleaning containers..."
 	@$(COMPOSE) down --remove-orphans || true
+	@rm -f .inception_up
 	@echo "$(CHECKMARK) Containers cleaned."
 
 # Full clean - remove everything (42 school requirement)
@@ -94,11 +101,10 @@ re: fclean all  ## 🔄 Full rebuild (fclean + all)
 #                            ENHANCED TARGETS                                  #
 #------------------------------------------------------------------------------#
 
-.PHONY: build up down restart logs status help
+.PHONY: build up down restart logs status debug
 .PHONY: nginx wordpress mariadb
 .PHONY: nginx-logs wordpress-logs mariadb-logs
 .PHONY: nginx-shell wordpress-shell mariadb-shell
-.PHONY: check_env check_volumes debug
 
 # Environment and volume checks
 check_env:  ## 🔍 Check Docker environment prerequisites
