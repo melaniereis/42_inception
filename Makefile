@@ -6,7 +6,7 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/07/25 21:36:57 by meferraz         ###   ########.fr        #
+#    Updated: 2025/07/26 11:23:20 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -88,7 +88,6 @@ clean:  ## 🧹 Stop and remove containers
 # Full clean - remove everything (42 school requirement)
 fclean: clean  ## 🧹 Remove containers, volumes, and images
 	@echo "$(BROOM) Full cleanup: removing images and volumes..."
-	@$(COMPOSE) down --volumes --remove-orphans || true
 	@$(DOCKER) system prune -f || true
 	@$(DOCKER) rm inception_db_data inception_wp_data || true
 	@$(DOCKER) volume prune -f || true
