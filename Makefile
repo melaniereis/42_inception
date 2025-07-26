@@ -50,7 +50,7 @@ DOCKER_YML  = $(SRC)/docker-compose.yml
 #------------------------------------------------------------------------------#
 
 DOCKER      = docker
-COMPOSE     = $(DOCKER) compose -f $(DOCKER_YML) -p $(NAME)
+COMPOSE     = $(DOCKER)-compose -f $(DOCKER_YML) -p $(NAME)
 
 #------------------------------------------------------------------------------#
 #                              SERVICE NAMES                                   #
