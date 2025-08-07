@@ -6,7 +6,7 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/07/26 11:23:20 by meferraz         ###   ########.fr        #
+#    Updated: 2025/07/28 21:42:32 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -89,7 +89,7 @@ clean:  ## 🧹 Stop and remove containers
 fclean: clean  ## 🧹 Remove containers, volumes, and images
 	@echo "$(BROOM) Full cleanup: removing images and volumes..."
 	@$(DOCKER) system prune -f || true
-	@$(DOCKER) rm inception_db_data inception_wp_data || true
+	@$(DOCKER) rm inception_db_data inception_wp_data 2>/dev/null || true
 	@$(DOCKER) volume prune -f || true
 	@echo "$(CHECKMARK) Full cleanup complete."
 
@@ -121,10 +121,19 @@ check_env:  ## 🔍 Check Docker environment prerequisites
 
 check_volumes:  ## 📁 Ensure host volume directories exist
 	@echo "$(TARGET) Checking host volumes..."
-	@mkdir -p $(HOME)/data/db $(HOME)/data/wp
-	@chown -R $(shell id -u):$(shell id -g) $(HOME)/data
-	@chmod -R 775 $(HOME)/data
-	@echo "$(GREEN)$(CHECKMARK) Volumes at $(HOME)/data/ are ready.$(RESET)"
+	@if [ -z "$(USER)" ]; then \
+		echo "$(RED)$(WARNING) USER environment variable is not set$(RESET)"; \
+		exit 1; \
+	fi
+	@mkdir -p /home/${USER}/data/mariadb
+	@mkdir -p /home/${USER}/data/wordpress
+	@if [ -w /home/${USER}/data ]; then \
+		chown -R $(shell id -u):$(shell id -g) /home/${USER}/data; \
+		chmod -R 775 /home/${USER}/data; \
+	else \
+		echo "$(YELLOW)$(WARNING) Cannot modify permissions for /home/${USER}/data$(RESET)"; \
+	fi
+	@echo "$(GREEN)$(CHECKMARK) Volumes at /home/${USER}/data are ready.$(RESET)"
 
 # Build and deployment
 build:  ## 🔨 Build all Docker images
