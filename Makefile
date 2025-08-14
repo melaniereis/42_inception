@@ -44,7 +44,7 @@ include srcs/.env
 
 SRC         = srcs
 DOCKER_YML  = $(SRC)/docker-compose.yml
-COMPOSE     = docker compose -f $(DOCKER_YML)
+COMPOSE     = docker-compose -f $(DOCKER_YML)
 
 #------------------------------------------------------------------------------#
 #                           42 SCHOOL MANDATORY RULES                         #
