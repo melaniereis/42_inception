@@ -6,7 +6,7 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/08/14 14:00:05 by meferraz         ###   ########.fr        #
+#    Updated: 2025/08/15 09:09:41 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -39,99 +39,44 @@ SEPARATOR   = ===================================================
 #------------------------------------------------------------------------------#
 #                                 PATHS                                        #
 #------------------------------------------------------------------------------#
+NAME=inception
+USER=meferraz
 
-include srcs/.env
+WP_VOL_PATH=~/data/wordpress
+MDB_VOL_PATH=~/data/mariadb
 
-SRC         = srcs
-DOCKER_YML  = $(SRC)/docker-compose.yml
-COMPOSE     = docker-compose -f $(DOCKER_YML)
+COMPOSE=docker compose -f srcs/docker-compose.yml
 
-#------------------------------------------------------------------------------#
-#                           42 SCHOOL MANDATORY RULES                         #
-#------------------------------------------------------------------------------#
+.PHONY: all up down clean fclean secrets
 
-.PHONY: all clean fclean re
+all: up
 
-# Default target (42 school requirement)
-all: volumes up  ## 🚀 Build and start all services (default target)
-	@echo "$(GREEN)$(CHECKMARK) Inception is ready!$(RESET)"
-	@echo "$(INFO) Access your site at: https://$(USER).42.fr"
+init_dirs:
+	@echo "Ensuring data directories exist and have correct permissions..."
+	@mkdir -p $(WP_VOL_PATH) $(MDB_VOL_PATH)
+	@sudo chown -R 999:999 $(MDB_VOL_PATH)  # For MariaDB
+	@sudo chown -R 33:33 $(WP_VOL_PATH)      # For WordPress (www-data)
+	@if [ ! -d "srcs/secrets" ]; then \
+		mkdir -p srcs/secrets; \
+		touch srcs/secrets/db_password.txt srcs/secrets/wp_admin_password.txt srcs/secrets/wp_user_password.txt; \
+		chmod 600 srcs/secrets/*; \
+		echo "Secret files created at srcs/secrets/"; \
+	else \
+		echo "Secret directory already exists, not overwriting secrets."; \
+	fi
 
-# Clean rule - stop containers but keep images (42 school requirement)
-clean:  ## 🧹 Stop and remove containers
-	@echo "$(BROOM) Cleaning containers..."
-	@$(COMPOSE) down --remove-orphans || true
-	@echo "$(GREEN)$(CHECKMARK) Containers cleaned.$(RESET)"
+up: init_dirs
+	@echo "Creating host volume directories..."
+	$(COMPOSE) up -d --build
 
-# Full clean - remove everything (42 school requirement)
-fclean: clean  ## 🧹 Remove containers, volumes, images and host data
-	@echo "$(BROOM) Full cleanup: removing images, volumes and host data..."
-	@$(COMPOSE) down --volumes --rmi all || true
-	@rm -rf $(WP_VOL_PATH) $(MDB_VOL_PATH) || true
-	@echo "$(GREEN)$(CHECKMARK) Full cleanup complete.$(RESET)"
+down:
+	$(COMPOSE) down
 
-# Rebuild everything (42 school requirement)
-re: fclean all  ## 🔄 Full rebuild (fclean + all)
-
-#------------------------------------------------------------------------------#
-#                            SIMPLIFIED TARGETS                                #
-#------------------------------------------------------------------------------#
-
-.PHONY: up down status volumes
-
-up:  ## 🚀 Start all services
-	@echo "$(ROCKET) Starting services..."
-	@$(COMPOSE) up -d --build
-	@echo "$(GREEN)$(CHECKMARK) Services are up.$(RESET)"
-
-down:  ## 🛑 Stop all services
-	@echo "$(TARGET) Stopping services..."
-	@$(COMPOSE) down
-	@echo "$(GREEN)$(CHECKMARK) Services stopped.$(RESET)"
-
-status:  ## 📊 Show status of all services
-	@echo "$(INFO) $(SEPARATOR)"
-	@echo "$(INFO) INCEPTION PROJECT STATUS"
-	@echo "$(INFO) $(SEPARATOR)"
-	@echo "$(TARGET) Container Status:"
-	@$(COMPOSE) ps
-	@echo ""
-	@echo "$(TARGET) Volume Status:"
-	@docker volume ls | grep $(NAME) || echo "No inception volumes found"
-	@echo "$(INFO) $(SEPARATOR)"
-
-#------------------------------------------------------------------------------#
-#                          VOLUME DIRECTORY CREATION                           #
-#------------------------------------------------------------------------------#
-
-volumes:
-	@echo "🎯 Creating WordPress directory at $(WP_VOL_PATH)..."
-	@mkdir -p $(WP_VOL_PATH)
-	@echo "🎯 Creating MariaDB directory at $(MDB_VOL_PATH)..."
-	@mkdir -p $(MDB_VOL_PATH)
-	@echo "$(GREEN)$(CHECKMARK) Directories ready.$(RESET)"
-
-#------------------------------------------------------------------------------#
-#                          SELF-DOCUMENTING HELP                               #
-#------------------------------------------------------------------------------#
-
-help:  ## 📚 Display this help message
-	@echo "$(INFO) $(SEPARATOR)"
-	@echo "$(INFO) INCEPTION PROJECT - Available Commands"
-	@echo "$(INFO) $(SEPARATOR)"
-	@echo ""
-	@echo "$(YELLOW)42 School Mandatory Targets:$(RESET)"
-	@grep -E '^(all|clean|fclean|re):.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(YELLOW)Service Management:$(RESET)"
-	@grep -E '^(up|down|status|volumes):.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(YELLOW)Help:$(RESET)"
-	@grep -E '^help:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(INFO) Usage: make <target>"
-	@echo "$(INFO) Default: make (runs 'all' target)"
-	@echo "$(INFO) $(SEPARATOR)"
+clean: down
+	docker system prune -af --volumes
+fclean: clean
+	docker stop $(docker ps -qa)
+	docker rm $(docker ps -qa)
+	docker rmi -f $(docker images -qa)
+	docker volume rm $(docker volume ls -q)
+	docker network rm $(docker network ls -q) 2>/dev/null

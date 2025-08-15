@@ -1,63 +1,28 @@
-#!/bin/sh
-set -e
+#!/bin/bash
+set -euo pipefail
 
-# **************************************************************************** #
-#                                                                              #
-#                         MARIADB STARTUP SCRIPT                              #
-#                                                                              #
-# **************************************************************************** #
+# MariaDB runtime entrypoint. It uses an SQL init file and execs mysqld in foreground.
+# It requires the docker secret /run/secrets/db_password to exist.
 
-echo "[MariaDB] 🚀 Starting MariaDB initialization..."
+if [ ! -f /run/secrets/db_password ]; then
+  echo "[ERROR] Missing secret: /run/secrets/db_password" >&2
+  echo "Create the file srcs/secrets/db_password before starting." >&2
+  exit 1
+fi
+DB_PASS=$(cat /run/secrets/db_password)
 
-# Load passwords from Docker secrets
-ROOT_PASSWORD=$(cat /run/secrets/db_root_password)
-USER_PASSWORD=$(cat /run/secrets/db_password)
+: "${MYSQL_DATABASE:?Missing MYSQL_DATABASE env var}"
+: "${MYSQL_USER:?Missing MYSQL_USER env var}"
 
-# Set default environment variables
-DB_NAME="${MYSQL_DATABASE:-wordpress}"
-DB_USER="${MYSQL_USER:-wp_user}"
-
-	mysql_install_db --user=mysql --datadir=/var/lib/mysql
-	chown -R mysql:mysql /var/lib/mysql
-
-# Inicializa e configura apenas se o banco ainda não existe
-if [ ! -d "/var/lib/mysql/mysql" ]; then
-	echo "[MariaDB] 🔧 Initializing empty database directory..."
-	mysql_install_db --user=mysql --datadir=/var/lib/mysql
-	chown -R mysql:mysql /var/lib/mysql
-
-	# Start MariaDB em background
-	mysqld --user=mysql --datadir=/var/lib/mysql --skip-networking &
-	MARIADB_PID=$!
-
-	# Espera o servidor iniciar
-	echo "[MariaDB] ⏳ Waiting for server to be ready..."
-	for i in $(seq 1 30); do
-		if mysqladmin ping --socket=/var/lib/mysql/mysql.sock --silent; then
-			echo "[MariaDB] ✅ Server is ready!"
-			break
-		fi
-		sleep 1
-	done
-
-	# Configura root e banco
-	echo "[MariaDB] 🛡️ Configuring database and users..."
-	mysql -uroot <<SQL
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${ROOT_PASSWORD}';
-CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
-CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${USER_PASSWORD}';
-GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'%';
-DELETE FROM mysql.user WHERE User='';
-DROP DATABASE IF EXISTS test;
+INIT_SQL=/etc/mysql/init.sql
+cat > ${INIT_SQL} <<SQL
+CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${DB_PASS}';
+GRANT ALL PRIVILEGES ON \`${MYSQL_DATABASE}\`.* TO '${MYSQL_USER}'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 SQL
 
-	echo "[MariaDB] 🛑 Shutting down temporary server..."
-	mysqladmin shutdown -uroot -p"${ROOT_PASSWORD}" || true
-	wait "$MARIADB_PID" 2>/dev/null || true
-else
-	echo "[MariaDB] Banco já inicializado, pulando configuração de root."
-fi
+chown mysql:mysql ${INIT_SQL} || true
 
-echo "[MariaDB] 🚀 Starting MariaDB in production mode..."
-exec mysqld --user=mysql --datadir=/var/lib/mysql
+# Exec mysqld in foreground; it will execute --init-file on startup
+exec gosu mysql mysqld --init-file=${INIT_SQL}
