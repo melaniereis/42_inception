@@ -1,0 +1,6 @@
+[mysqld]
+# The port MariaDB will listen on
+port=3306
+
+# The address MariaDB will bind to (0.0.0.0 means listen on all interfaces)
+bind-address=0.0.0.0

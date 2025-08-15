@@ -1,71 +1,127 @@
 services:
+  # ----------------------------- #
+  #         DATABASE SERVICE      #
+  # ----------------------------- #
   mariadb:
-    build: ./requirements/mariadb
-    image: mariadb
     container_name: mariadb
-    env_file: ./.env
-    restart: unless-stopped
+    build: ./requirements/mariadb/
+    image: mariadb
     volumes:
-      - mariadb_data:/var/lib/mysql
-    networks:
-      - inception
+      - database:/var/lib/mysql/ # Persistent storage for MariaDB data
     secrets:
       - db_password
+      - db_root_password
+      - db_user
+      - db_name
+    networks:
+      - inception
+    init: true
+    restart: on-failure
+    env_file:
+      - .env
 
+  # ----------------------------- #
+  #        WORDPRESS SERVICE      #
+  # ----------------------------- #
   wordpress:
-    build: ./requirements/wordpress
-    image: wordpress
     container_name: wordpress
-    env_file: ./.env
-    restart: unless-stopped
+    build: ./requirements/wordpress/
+    image: wordpress
+    volumes:
+      - wordpress:/var/www/inception/ # WordPress files and uploads
+    networks:
+      - inception
+    init: true
+    restart: on-failure
+    env_file:
+      - .env
     depends_on:
       - mariadb
-    volumes:
-      - wordpress_data:/var/www/html
-    networks:
-      - inception
-    expose:
-      - "9000"
     secrets:
       - db_password
-      - wp_admin_password
+      - db_user
+      - db_name
       - wp_user_password
+      - wp_admin_password
+      - wp_admin
+      - wp_user
 
+  # ----------------------------- #
+  #          NGINX SERVICE        #
+  # ----------------------------- #
   nginx:
-    build: ./requirements/nginx
-    image: nginx
     container_name: nginx
-    env_file: ./.env
-    restart: unless-stopped
-    depends_on:
-      - wordpress
+    build:
+      context: ./requirements/nginx/
+      args:
+        CERT_FOLDER: ${CERT_FOLDER}
+        CERTIFICATE: ${CERTIFICATE}
+        KEY: ${KEY}
+        COUNTRY: ${COUNTRY}
+        STATE: ${STATE}
+        LOCALITY: ${LOCALITY}
+        ORGANIZATION: ${ORGANIZATION}
+        UNIT: ${UNIT}
+        COMMON_NAME: ${COMMON_NAME}
+    image: nginx
     ports:
-      - "443:443"
+      - '443:443' # Expose HTTPS
     volumes:
-      - wordpress_data:/var/www/html
+      - wordpress:/var/www/inception/ # Serve WordPress static files
     networks:
       - inception
+    init: true
+    restart: on-failure
+    env_file:
+      - .env
+    depends_on:
+      - wordpress
 
-secrets:
-  db_password:
-    file: ./secrets/db_password.txt
-  wp_admin_password:
-    file: ./secrets/wp_admin_password.txt
-  wp_user_password:
-    file: ./secrets/wp_user_password.txt
-
+# ----------------------------- #
+#         NAMED VOLUMES         #
+# ----------------------------- #
 volumes:
-  wordpress_data:
+  database:
+    driver: local
     driver_opts:
-      o: bind
-      device: ${HOME}/data/wordpress
       type: none
-  mariadb_data:
-    driver_opts:
       o: bind
-      device: ${HOME}/data/mariadb
-      type: none
+      device: /home/meferraz/data/database # Host path for MariaDB data
 
+  wordpress:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/meferraz/data/wordpress_files # Host path for WordPress files
+
+# ----------------------------- #
+#         CUSTOM NETWORK        #
+# ----------------------------- #
 networks:
   inception:
-    driver: bridge
+    driver: bridge # Isolated bridge network for all services
+
+# ----------------------------- #
+#         DOCKER SECRETS        #
+# ----------------------------- #
+secrets:
+  # WordPress user secrets
+  wp_user:
+    file: ../../secrets/wp_user.txt
+  wp_user_password:
+    file: ../../secrets/wp_user_password.txt
+  wp_admin:
+    file: ../../secrets/wp_admin.txt
+  wp_admin_password:
+    file: ../../secrets/wp_admin_password.txt
+
+  # Database credentials
+  db_user:
+    file: ../../secrets/db_user.txt
+  db_password:
+    file: ../../secrets/db_password.txt
+  db_name:
+    file: ../../secrets/db_name.txt
+  db_root_password:
+    file: ../../secrets/db_root_password.txt

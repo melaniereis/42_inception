@@ -6,16 +6,9 @@
 #    By: meferraz <meferraz@student.42porto.pt>     +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2025/07/15 16:35:04 by meferraz          #+#    #+#              #
-#    Updated: 2025/08/15 09:09:41 by meferraz         ###   ########.fr        #
+#    Updated: 2025/08/15 11:36:59 by meferraz         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
-
-#------------------------------------------------------------------------------#
-#                                   NAMES                                      #
-#------------------------------------------------------------------------------#
-
-NAME        = inception
-USER        = meferraz
 
 #------------------------------------------------------------------------------#
 #                             COLORS & EMOJIS                                  #
@@ -31,52 +24,50 @@ CHECKMARK   = ✅
 WARNING     = ⚠️
 ROCKET      = 🚀
 BROOM       = 🧹
-TARGET      = 🎯
 INFO        = ℹ️
-
-SEPARATOR   = ===================================================
 
 #------------------------------------------------------------------------------#
 #                                 PATHS                                        #
 #------------------------------------------------------------------------------#
-NAME=inception
-USER=meferraz
 
-WP_VOL_PATH=~/data/wordpress
-MDB_VOL_PATH=~/data/mariadb
+COMPOSE     = docker compose -f srcs/docker-compose.yml
 
-COMPOSE=docker compose -f srcs/docker-compose.yml
+#------------------------------------------------------------------------------#
+#                                 RULES                                        #
+#------------------------------------------------------------------------------#
 
-.PHONY: all up down clean fclean secrets
+.PHONY: all build up down clean fclean logs restart
 
 all: up
 
-init_dirs:
-	@echo "Ensuring data directories exist and have correct permissions..."
-	@mkdir -p $(WP_VOL_PATH) $(MDB_VOL_PATH)
-	@sudo chown -R 999:999 $(MDB_VOL_PATH)  # For MariaDB
-	@sudo chown -R 33:33 $(WP_VOL_PATH)      # For WordPress (www-data)
-	@if [ ! -d "srcs/secrets" ]; then \
-		mkdir -p srcs/secrets; \
-		touch srcs/secrets/db_password.txt srcs/secrets/wp_admin_password.txt srcs/secrets/wp_user_password.txt; \
-		chmod 600 srcs/secrets/*; \
-		echo "Secret files created at srcs/secrets/"; \
-	else \
-		echo "Secret directory already exists, not overwriting secrets."; \
-	fi
+build:
+	@echo "$(BLUE)$(ROCKET) Building Docker images...$(RESET)"
+	$(COMPOSE) build
 
-up: init_dirs
-	@echo "Creating host volume directories..."
+up:
+	@echo "$(GREEN)$(CHECKMARK) Starting containers...$(RESET)"
 	$(COMPOSE) up -d --build
 
 down:
+	@echo "$(WARNING)Stopping containers...$(RESET)"
 	$(COMPOSE) down
 
-clean: down
-	docker system prune -af --volumes
+restart: down up
+
+clean:
+	@echo "$(BROOM) Cleaning up Docker system...$(RESET)"
+	$(COMPOSE) down -v --remove-orphans
+
 fclean: clean
-	docker stop $(docker ps -qa)
-	docker rm $(docker ps -qa)
-	docker rmi -f $(docker images -qa)
-	docker volume rm $(docker volume ls -q)
-	docker network rm $(docker network ls -q) 2>/dev/null
+	@echo "$(RED)Removing all containers, images, volumes, and networks...$(RESET)"
+	docker stop $(shell docker ps -qa) 2>/dev/null || true
+	docker rm $(shell docker ps -qa) 2>/dev/null || true
+	docker rmi -f $(shell docker images -qa) 2>/dev/null || true
+	docker volume rm $(shell docker volume ls -q) 2>/dev/null || true
+	docker network rm $(shell docker network ls -q) 2>/dev/null || true
+
+logs:
+	@echo "$(BLUE)Showing logs...$(RESET)"
+	$(COMPOSE) logs -f
+
+re: fclean all

@@ -1,11 +1,21 @@
 FROM debian:bullseye
 
-RUN apt-get update && apt-get install -y gosu mariadb-server && rm -rf /var/lib/apt/lists/*
-
-COPY conf/mariadb.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
-COPY tools/mariadb-start.sh /usr/local/bin/mariadb-start.sh
-RUN chmod +x /usr/local/bin/mariadb-start.sh
-
+# Expose the default MariaDB port
 EXPOSE 3306
 
-ENTRYPOINT ["/usr/local/bin/mariadb-start.sh"]
+# Install MariaDB server and gosu for privilege dropping
+RUN apt-get update && \
+	apt-get install -y --no-install-recommends --no-install-suggests \
+	mariadb-server gosu && \
+	rm -rf /var/lib/apt/lists/*
+
+# Add custom MariaDB configuration
+COPY conf/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
+
+# Copy the database setup script and ensure it's executable
+COPY tools/setup.sh /setup.sh
+RUN chmod 755 /setup.sh
+
+# Set the entrypoint to the setup script
+ENTRYPOINT ["/setup.sh"]
+CMD ["mysqld"]
