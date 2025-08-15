@@ -26,9 +26,7 @@ export MYSQL_ROOT_PASSWORD MYSQL_USER MYSQL_PASSWORD MYSQL_DATABASE
 chown -R mysql:mysql /var/lib/mysql
 
 # Initialize the database if it hasn't been set up yet
-if [ ! -d /var/lib/mysql/mysql ]; then
-	mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql
-	mysqld --user=mysql --bootstrap <<SQL
+mysqld --user=mysql --bootstrap <<SQL
 FLUSH PRIVILEGES;
 CREATE DATABASE IF NOT EXISTS \`${MYSQL_DATABASE}\`;
 CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'%' IDENTIFIED BY '${MYSQL_PASSWORD}';

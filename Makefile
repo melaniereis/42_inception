@@ -30,7 +30,7 @@ INFO        = ℹ️
 #                                 PATHS                                        #
 #------------------------------------------------------------------------------#
 
-COMPOSE     = docker compose -f srcs/docker-compose.yml
+COMPOSE     = docker-compose -f srcs/docker-compose.yml
 
 #------------------------------------------------------------------------------#
 #                                 RULES                                        #
@@ -47,6 +47,8 @@ build:
 up:
 	@echo "$(GREEN)$(CHECKMARK) Starting containers...$(RESET)"
 	$(COMPOSE) up -d --build
+	@echo "$(CHECKMARK) Containers are up and running!$(RESET)"
+	@echo "$(INFO) Access the application at http://$(USER).42.fr$(RESET)"
 
 down:
 	@echo "$(WARNING)Stopping containers...$(RESET)"

@@ -13,5 +13,8 @@ define('DB_PASSWORD', get_secret('db_password'));
 // Use DB_HOST from environment or default to service name and port
 define('DB_HOST', getenv('DB_HOST') ?: 'mariadb:3306');
 
+// Set the WordPress database table prefix
+$table_prefix = 'wp_';
+
 // Load WordPress core settings
 require_once ABSPATH . 'wp-settings.php';

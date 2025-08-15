@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # Ensure the secrets directory exists and copy secrets there
-install -d -m 700 /var/www/inception/secrets
+install -d -m 755 /var/www/inception/secrets
 cp /run/secrets/* /var/www/inception/secrets/
+chown -R www-data:www-data /var/www/inception/secrets
+chmod -R 440 /var/www/inception/secrets/*
 
 # Load credentials from secrets
 ADMIN_PASS=$(< /run/secrets/wp_admin_password)
