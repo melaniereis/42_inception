@@ -360,7 +360,7 @@ This project teaches:
 
 ## 👥 Contributors
 
-- **[Your Name](https://github.com/meferraz)** - Infrastructure Architecture & Implementation
+- **[melaniereis](https://github.com/melaniereis)** - Infrastructure Architecture & Implementation
 
 ## 📄 License
 
